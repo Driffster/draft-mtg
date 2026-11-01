@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Draft MTG</title>
+
+<style>
+
+body{
+    font-family:Segoe UI,Arial,sans-serif;
+    max-width:1400px;
+    margin:auto;
+    padding:20px;
+    background:#f5f5f5;
+}
+
+h1,h2{
+    margin-top:0;
+}
+
+.panel{
+    background:white;
+    padding:15px;
+    border-radius:10px;
+    margin-bottom:20px;
+}
+
+.cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:15px;
+}
+
+.card{
+    background:white;
+    border-radius:10px;
+    padding:15px;
+    box-shadow:0 1px 5px rgba(0,0,0,0.15);
+}
+
+.price{
+    color:green;
+    font-weight:bold;
+    font-size:18px;
+}
+
+button{
+    background:#0078d4;
+    color:white;
+    border:none;
+    padding:10px;
+    border-radius:5px;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#005ea6;
+}
+
+button:disabled{
+    background:#999;
+    cursor:not-allowed;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+th,td{
+    border-bottom:1px solid #ddd;
+    padding:8px;
+}
+
+input,select{
+    width:100%;
+    padding:10px;
+    margin-bottom:10px;
+}
+
+.current{
+    font-size:24px;
+    font-weight:bold;
+    color:#0078d4;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>🎴 Draft MTG Snake Draft</h1>
+
+<div class="panel">
+
+<select id="player">
+    <option>Chantal</option>
+    <option>Guillaume</option>
+    <option>Martin</option>
+    <option>Daniel</option>
+</select>
+
+<input id="search" placeholder="Recherche...">
+
+<div class="current" id="currentPlayer"></div>
+<div id="nextPlayer"></div>
+
+<br>
+
+<button onclick="resetDraft()">
+Réinitialiser le draft
+</button>
+
+</div>
+
+<div class="panel">
+<h2>Totaux</h2>
+<div id="totals"></div>
+</div>
+
+<div class="panel">
+<h2>Historique</h2>
+<div id="history"></div>
+</div>
+
+<div class="panel">
+<h2>Cartes disponibles</h2>
+<div id="cards" class="cards"></div>
+</div>
+
+<script>
+
+// Exemple
+// Remplace par toutes les cartes.
+
+let cards = [
+
+{
+id:1,
+name:"Jeweled Amulet FOIL",
+edition:"Mystery Booster Commander Edition",
+price:140
+},
+
+{
+id:2,
+name:"Sensei's Divining Top",
+edition:"Mystery Booster 2",
+price:35.45
+},
+
+{
+id:3,
+name:"Snuff Out",
+edition:"Mystery Booster 2",
+price:6.31
+},
+
+{
+id:4,
+name:"Tivit, Seller of Secrets",
+edition:"New Capenna Commander",
+price:11.69
+},
+
+{
+id:5,
+name:"Doomsday",
+edition:"The List",
+price:6.04
+}
+
+];
+
+const PLAYERS = [
+"Chantal",
+"Guillaume",
+"Martin",
+"Daniel"
+];
+
+const saved =
+JSON.parse(localStorage.getItem("draftData"));
+
+if(saved){
+   cards = saved;
+}
+
+function save(){
+   localStorage.setItem(
+      "draftData",
+      JSON.stringify(cards)
+   );
+}
+
+function getCurrentPlayer(pick){
+
+    const round =
+        Math.floor((pick-1)/4);
+
+    const pos =
+        (pick-1)%4;
+
+    if(round % 2 === 0){
+       return PLAYERS[pos];
+    }
+
+    return PLAYERS[3-pos];
+}
+
+function render(){
+
+    const chosen =
+        cards.filter(c=>c.owner);
+
+    const currentPick =
+        chosen.length + 1;
+
+    const active =
+        getCurrentPlayer(currentPick);
+
+    const next =
+        getCurrentPlayer(currentPick+1);
+
+    document.getElementById(
+        "currentPlayer"
+    ).innerHTML =
+        "Tour actuel : " + active;
+
+    document.getElementById(
+        "nextPlayer"
+    ).innerHTML =
+        "Prochain : " + next;
+
+    renderTotals();
+    renderHistory();
+    renderCards(active);
+}
+
+function renderTotals(){
+
+    let totals = {};
+
+    PLAYERS.forEach(
+        p => totals[p] = 0
+    );
+
+    cards.forEach(card=>{
+
+        if(card.owner){
+            totals[card.owner] += card.price;
+        }
+
+    });
+
+    let html =
+    "<table><tr><th>Joueur</th><th>Total</th></tr>";
+
+    Object.entries(totals)
+    .sort((a,b)=>b[1]-a[1])
+    .forEach(([player,total])=>{
+
+        html += `
+        <tr>
+            <td>${player}</td>
+            <td>${total.toFixed(2)}$</td>
+        </tr>
+        `;
+
+    });
+
+    html += "</table>";
+
+    document.getElementById(
+      "totals"
+    ).innerHTML = html;
+}
+
+function renderHistory(){
+
+    const history =
+    cards
+      .filter(c=>c.pickNumber)
+      .sort((a,b)=>
+           a.pickNumber-b.pickNumber
+      );
+
+    let html =
+    "<table><tr><th>#</th><th>Joueur</th><th>Carte</th><th>Prix</th></tr>";
+
+    history.forEach(card=>{
+
+        html += `
+        <tr>
+            <td>${card.pickNumber}</td>
+            <td>${card.owner}</td>
+            <td>${card.name}</td>
+            <td>${card.price.toFixed(2)}$</td>
+        </tr>
+        `;
+
+    });
+
+    html += "</table>";
+
+    document.getElementById(
+      "history"
+    ).innerHTML = html;
+}
+
+function renderCards(activePlayer){
+
+    const currentUser =
+      document.getElementById("player").value;
+
+    const search =
+      document.getElementById("search")
+      .value
+      .toLowerCase();
+
+    const available =
+      cards
+      .filter(c=>!c.owner)
+      .filter(c=>
+          c.name.toLowerCase()
+          .includes(search)
+      )
+      .sort((a,b)=>b.price-a.price);
+
+    let html = "";
+
+    available.forEach(card=>{
+
+        html += `
+        <div class="card">
+
+            <h3>${card.name}</h3>
+
+            <p>${card.edition}</p>
+
+            <div class="price">
+                ${card.price.toFixed(2)}$
+            </div>
+
+            <br>
+
+            <button
+                onclick="pickCard(${card.id})"
+                ${currentUser!==activePlayer
+                ? "disabled" : ""}>
+                Choisir
+            </button>
+
+        </div>
+        `;
+    });
+
+    document.getElementById("cards")
+    .innerHTML = html;
+}
+
+function pickCard(id){
+
+    const card =
+        cards.find(c=>c.id===id);
+
+    const owner =
+        document.getElementById("player")
+        .value;
+
+    const pickNumber =
+        cards.filter(c=>c.owner)
+        .length + 1;
+
+    card.owner = owner;
+    card.pickNumber = pickNumber;
+
+    save();
+    render();
+}
+
+function resetDraft(){
+
+    if(confirm(
+        "Réinitialiser complètement le draft ?"
+    )){
+
+        localStorage.removeItem("draftData");
+        location.reload();
+    }
+}
+
+document
+.getElementById("search")
+.addEventListener("input",render);
+
+document
+.getElementById("player")
+.addEventListener("change",render);
+
+render();
+
+</script>
+
+</body>
+</html>
